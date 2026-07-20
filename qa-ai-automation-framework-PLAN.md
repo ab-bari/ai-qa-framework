@@ -26,7 +26,7 @@ Six components, each a CLI subcommand, each independently runnable, communicatin
 qa-ai crawl          → .qa/site-model/site-model.json          (SiteModel)
 qa-ai plan           → .qa/plans/plan-<ts>.json                (TestPlan)      [reads SiteModel + coverage gaps]
 qa-ai execute        → .qa/runs/run-<ts>/run-result.json       (RunResult)     [reads TestPlan + SiteModel; updates coverage]
-qa-ai generate       → .qa/generated-tests/                    (standalone PW project) [reads TestPlan + SiteModel + RunResult]
+qa-ai generate       → automation-tests/  (repo root, not .qa/)  (standalone PW project) [reads TestPlan + SiteModel]
 qa-ai run-generated  → Playwright's native HTML report (human) + native JSON report file (machine handoff)
 qa-ai heal           → patched files + .qa/healing/session-<ts>/healing-report.html (+ .json) [reads Playwright JSON report + project]
 ```
@@ -74,7 +74,7 @@ qa-ai-automation-framework/
 │   │   └── debug-log.ts            # every exchange → .qa/debug/ai/<ts>-<purpose>/
 │   ├── schemas/                    # Zod schemas + inferred types
 │   │   ├── config.ts  site-model.ts  test-plan.ts  run-result.ts
-│   │   ├── coverage.ts  pw-json-report.ts  healing-report.ts
+│   │   ├── coverage.ts  pw-json-report.ts  healing-report.ts  generation-manifest.ts
 │   │   └── versions.ts             # SCHEMA_VERSIONS map
 │   ├── crawler/
 │   │   ├── index.ts  frontier.ts  page-analyzer.ts  link-discovery.ts
@@ -97,13 +97,14 @@ qa-ai-automation-framework/
 │       ├── index.ts  triage.ts  context-builder.ts  patcher.ts  verify-loop.ts
 │       ├── pw-report-reader.ts     # parse Playwright's native JSON report + traceability comments
 │       └── report.ts               # healing-report.html (primary) + healing-report.json
-├── templates/generated-project/    # static scaffold copied verbatim by generator
+├── templates/generated-project/    # static scaffold copied verbatim by generator → automation-tests/
 │   ├── package.json.hbs            # {{projectName}} substitution only
 │   ├── playwright.config.ts.hbs    # {{baseUrl}}; html + json reporters, trace on-first-retry, chromium
 │   ├── tsconfig.json
 │   ├── .gitignore                  # storage-state.json, test-results/, .env
-│   ├── src/fixtures/base.ts        # mirrors automation/src/fixtures/base.ts
+│   ├── src/fixtures/base.ts        # mirrors automation/ base + consoleErrors fixture (no_console_errors)
 │   ├── src/pages/BasePage.ts       # mirrors automation/src/pages/BasePage.ts contract
+│   ├── tests/seed.spec.ts          # baseline smoke, parameterized on {{baseUrl}}
 │   └── README.md.hbs
 └── tests/                          # framework's own vitest unit tests, mirrors src/
 ```
@@ -117,11 +118,12 @@ qa-ai-automation-framework/
 ├── runs/run-<ts>/{run-result.json, evidence/<test_id>/*, report/{report.html, report.json}}
 ├── coverage/coverage-registry.json
 ├── auth/storage-state.json                    # gitignored
-├── generated-tests/                           # the self-contained Playwright project
 ├── automation-runs/run-<ts>/{playwright-report/ (native HTML), results.json (native PW JSON)}
 ├── healing/session-<ts>/{healing-report.html, healing-report.json, backups/, diffs/}
 └── debug/ai/<ts>-<purpose>/{prompt.md, response.md, meta.json}
 ```
+
+> **Note:** the generated Playwright project is emitted **outside** `.qa/`, at the framework/target root as `automation-tests/` (own `package.json`, repo-extraction-ready). `.qa/automation-runs/` still holds the Phase 6 run reports. Detailed design: [`PHASE_5_GENERATOR_PLAN.md`](PHASE_5_GENERATOR_PLAN.md).
 
 ## 4. Data Contracts (Zod)
 
@@ -201,16 +203,19 @@ export interface LLMProvider {
 - After run: record `actual_page_id`/`actual_url` from final browser URL → update coverage registry attributed to actual_page_id → reporter emits HTML (self-contained, base64 screenshots, per-test expandable cards) + JSON, regression detection by coverage_signature vs previous run, AI summary with template fallback.
 
 ### 6.4 automation-script-generator (`qa-ai generate`)
-- Inputs: TestPlan + SiteModel + RunResult (the **healed truth**: working selectors from FallbackRecords, actual URLs — generate from what actually worked, not the original guesses).
-- **Deterministic scaffold** (copied from `templates/generated-project/`, no LLM): package.json (pinned `@playwright/test`, `typescript`; scripts test/test:headed/report), tsconfig, playwright.config.ts (testDir `./tests`, `reporter: [["html"],["json",{outputFile:"results.json"}]]`, trace on-first-retry, chromium, baseURL injected), `src/fixtures/base.ts`, `src/pages/BasePage.ts` (exact `automation/` contracts), .gitignore, README.
+> Detailed design: [`PHASE_5_GENERATOR_PLAN.md`](PHASE_5_GENERATOR_PLAN.md).
+- Inputs: **TestPlan + SiteModel** (canonical TestPlan = the TS framework's `.qa/plans/latest.json`; `--plan` overrides; `.qa-framework/latest_plan.json` is legacy Python output). Real Playwright locators are derived from `SiteModel` `ElementModel` data (selector, role, accessible name, `data-test`, forms) — not from a prior run.
+- **Output:** self-contained standalone project emitted at the framework/target root as **`automation-tests/`** (NOT inside `.qa/`; own `package.json`, repo-extraction-ready).
+- **Deterministic scaffold** (copied from `templates/generated-project/`, no LLM): package.json (pinned `@playwright/test`, `typescript`; scripts test/test:headed/report), tsconfig, playwright.config.ts (testDir `./tests`, `reporter: [["html"],["json",{outputFile:"results.json"}]]`, trace on-first-retry, chromium, baseURL injected), `src/fixtures/base.ts` (mirrors `automation/` base + a `consoleErrors` fixture backing `no_console_errors`), `src/pages/BasePage.ts` (exact `automation/` contract), `tests/seed.spec.ts` (baseline smoke), .gitignore, README.
 - **LLM-generated content:**
-  1. Page objects — one call per targeted SiteModel page: PageModel elements + RunResult evidence + conventions block → `{ files: [{path, content}] }` Zod-validated.
+  1. Page objects — one call per targeted SiteModel page: PageModel elements + conventions block → `{ files: [{path, content}] }` Zod-validated.
   2. Specs + data — one call per feature group (test cases grouped by target_page_id): TestCases + generated page-object public API signatures → `tests/<url-mirror>/<kebab>.spec.ts` + `tests/data/*.json`. Credentials emitted as `process.env` reads + `.env.example` (never committed values).
+- **Assertion translation** (14 types → web-first Playwright): direct maps for element_visible/hidden, text_contains/equals/matches, url_matches, element_count, page_title_contains, page_loaded; `no_console_errors` via the `consoleErrors` fixture; network_request_made/response_status via `page.waitForResponse`; `ai_evaluate` → a concrete assertion when feasible else a `// qa-ai:ai_evaluate` TODO (never a fake pass); `screenshot_diff`/visual-only → `test.fixme` (v1 excludes visual).
 - **Conventions enforced** (`conventions.ts` — from `automation/AGENTS.md`): import test/expect from `src/fixtures/base` only; PO contract (extends BasePage, constructor(page) only, readonly locators in constructor, no expect() in POs, actions return void or next PO); locator priority getByRole → getByLabel → getByTestId → getByText, **CSS/XPath forbidden**; web-first assertions; `waitForTimeout`/`waitForSelector` banned; test.describe per feature; tags in titles (@smoke @regression @critical); test.step for >3 actions; kebab-case specs mirroring URL structure; `// qa-ai:test_id=TC-001 signature=<coverage_signature>` traceability comment per test.
-- **Validation loop** (`validate-loop.ts`): write files → `npm install` → `npx tsc --noEmit` (errors fed back to LLM, max 3 repair rounds per file) → `npx playwright test --list` (catches import/fixture errors, same loop) → static convention lint (regex: no `@playwright/test` import in tests/, no waitForTimeout, no raw CSS locators in specs) → emit `generation-manifest.json` (plan_id, run_id, file→test_id map, repair rounds) for runner/healer.
+- **Validation loop** (`validate-loop.ts`): write files → `npm install` → `npx tsc --noEmit` (errors fed back to LLM, max 3 repair rounds per file) → `npx playwright test --list` (catches import/fixture errors, same loop) → static convention lint (regex: no `@playwright/test` import in tests/, no waitForTimeout, no raw CSS locators in specs) → emit `generation-manifest.json` (plan_id, file→test_id map, repair rounds) for runner/healer.
 
 ### 6.5 automation-test-runner (`qa-ai run-generated`)
-- Verify package.json → `npm install` if node_modules missing (`--install` to force) → ensure chromium installed → spawn `npx playwright test` with html+json reporters, output paths pointed into `.qa/automation-runs/run-<ts>/` → print console summary + path to the **Playwright HTML report** (the stage's human-facing output — no custom report layer). The native Playwright **JSON report file** (`results.json`) is kept alongside as the machine handoff the healer consumes directly. No remapping/custom schema. Pass-through flags: `--grep`, `--spec`, `--headed`, `--workers`. No AI. Exit code mirrors Playwright; reports always written.
+- Operates on the generated `automation-tests/` project by default (`--project` overrides). Verify package.json → `npm install` if node_modules missing (`--install` to force) → ensure chromium installed → spawn `npx playwright test` with html+json reporters, output paths pointed into `.qa/automation-runs/run-<ts>/` → print console summary + path to the **Playwright HTML report** (the stage's human-facing output — no custom report layer). The native Playwright **JSON report file** (`results.json`) is kept alongside as the machine handoff the healer consumes directly. No remapping/custom schema. Pass-through flags: `--grep`, `--spec`, `--headed`, `--workers`. No AI. Exit code mirrors Playwright; reports always written.
 
 ### 6.6 automation-test-healer (`qa-ai heal`)
 - **Triage** (deterministic, from error text/stack):
@@ -239,11 +244,13 @@ Global flags: `--config <path>` (default `./qa-config.json`), `--workspace <dir>
 | `qa-ai crawl` | `--max-pages`, `--output` | `qa-ai crawl --max-pages 15` |
 | `qa-ai plan` | `--site-model`, `--coverage`, `--max-tests`, `--output` | `qa-ai plan --max-tests 20` |
 | `qa-ai execute` | `--plan`, `--site-model`, `--headed`, `--max-parallel`, `--filter` | `qa-ai execute --headed` |
-| `qa-ai generate` | `--plan`, `--site-model`, `--run-result`, `--output`, `--skip-validate` | `qa-ai generate --output .qa/generated-tests` |
+| `qa-ai generate` | `--plan`, `--site-model`, `--output`, `--skip-validate` | `qa-ai generate` (→ `automation-tests/`) |
 | `qa-ai run-generated` | `--project`, `--grep`, `--headed`, `--install` | `qa-ai run-generated` |
 | `qa-ai heal` | `--run`, `--project`, `--max-attempts`, `--test`, `--no-live-dom`, `--verify-suite` | `qa-ai heal --max-attempts 3` |
 | `qa-ai pipeline` | `--from <step> --to <step>` | `qa-ai pipeline --from crawl --to execute` |
 | `qa-ai doctor` | `--validate-artifacts` | checks Node ≥20, claude CLI on PATH + authed, Playwright browsers, config validity |
+
+Default generated-project path for `run-generated` / `heal` is `automation-tests/` (`--project` overrides).
 
 Exit codes: 0 ok; 1 component error; 2 config/input error; 3 tests-failed (execute / run-generated).
 
@@ -264,7 +271,7 @@ Exit codes: 0 ok; 1 component error; 2 config/input error; 3 tests-failed (execu
 - **Phase 2 — Crawler** (exit: `qa-ai crawl` vs saucedemo.com): stealth browser, frontier, page analyzer, link strategies + sitemap, network capture, smart auth + storage-state, clean-context auth probing. Verify site-model has login/inventory/cart pages, correct `auth_required`, `data-test` attrs captured.
 - **Phase 3 — Planner + coverage read path** (exit: `qa-ai plan`): summarizer, prompts, plan-validator, fallback planner, gap-analyzer on empty registry. Verify valid TestPlan; forced-LLM-failure yields fallback plan.
 - **Phase 4 — Executor + coverage write + reporter** (exit: full crawl→plan→execute loop green on saucedemo): scheduler, action runner, 14 assertions, tier-1/2 healing, session guard, evidence, coverage update, HTML/JSON reports, regression detection. Verify healing fires on a deliberately wrong selector; second plan run reflects gap feedback.
-- **Phase 5 — Generator** (exit: `qa-ai generate` then `cd .qa/generated-tests && npx playwright test` passes standalone): templates, scaffold, PO generator, spec generator, conventions, tsc + `--list` validation loop, manifest. Spot-check AGENTS.md conformance.
+- **Phase 5 — Generator** (exit: `qa-ai generate` then `cd automation-tests && npx playwright test` passes standalone): templates, scaffold, PO generator, spec generator, conventions, tsc + `--list` validation loop, manifest. Inputs = TestPlan + SiteModel; output = top-level `automation-tests/`. Detailed design: [`PHASE_5_GENERATOR_PLAN.md`](PHASE_5_GENERATOR_PLAN.md). Spot-check AGENTS.md conformance.
 - **Phase 6 — Automation runner** (exit: `qa-ai run-generated`): install/browser checks + spawn with html+json reporters into the run folder + console summary pointing at the Playwright HTML report. Verify HTML report opens and results.json is valid.
 - **Phase 7 — Healer** (exit: `qa-ai heal` drills pass): pw-report-reader, triage, context builder, patcher w/ backup+diff, verify loop, restore-on-give-up, HTML+JSON healing report. Drills: sabotaged locator → healed green; wrong-text assertion → cautious triage; genuine missing element → app_bug_suspected with NO patch.
 - **Phase 8 — Pipeline + polish**: `qa-ai pipeline`, README with six-command workflow, qa-config.example.json, end-to-end smoke script, verify zero references outside the folder (repo-extraction ready).
@@ -296,7 +303,7 @@ Exit codes: 0 ok; 1 component error; 2 config/input error; 3 tests-failed (execu
 
 - `src/models/config.py`, `site_model.py`, `test_plan.py`, `test_result.py`, `coverage.py` — canonical field names for the Zod port
 - `automation/AGENTS.md` — generated-project conventions to encode in `src/generator/conventions.ts`
-- `automation/src/pages/BasePage.ts`, `automation/src/fixtures/base.ts` — exact contracts for `templates/generated-project/`
+- `automation/src/pages/BasePage.ts`, `automation/src/fixtures/base.ts`, `automation/tests/seed.spec.ts` — exact contracts for `templates/generated-project/`
 - `src/crawler/`, `src/executor/`, `src/planner/`, `src/coverage/` (Python) — algorithm references
 - `src/ai/prompts/*.py` — prompt starting points (planning, evaluation, fallback, auth, summary)
 - `qa-config.json.example` — config shape reference
