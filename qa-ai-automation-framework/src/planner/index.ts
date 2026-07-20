@@ -71,7 +71,7 @@ export async function generatePlan(
 
   if (ctx.llm === undefined) {
     logger.warn("No LLM provider available — generating deterministic fallback plan.");
-    return generateFallbackPlan(siteModel, ctx.config);
+    return generateFallbackPlan(siteModel, ctx.config, { maxTests });
   }
 
   const summary = summarizeSiteModel(siteModel, gapReport);
@@ -97,7 +97,7 @@ export async function generatePlan(
     }
     if (testCases.length === 0) {
       logger.warn("AI plan produced no valid test cases — falling back to deterministic plan.");
-      return generateFallbackPlan(siteModel, ctx.config);
+      return generateFallbackPlan(siteModel, ctx.config, { maxTests });
     }
 
     const capped = testCases.slice(0, maxTests);
@@ -122,6 +122,6 @@ export async function generatePlan(
     };
   } catch (error) {
     logger.error(`AI planning failed: ${String(error)}. Generating fallback plan.`);
-    return generateFallbackPlan(siteModel, ctx.config);
+    return generateFallbackPlan(siteModel, ctx.config, { maxTests });
   }
 }

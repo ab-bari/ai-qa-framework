@@ -83,4 +83,12 @@ describe("generateFallbackPlan", () => {
     const plan = generateFallbackPlan(siteModel(), config({ max_tests_per_run: 1 }));
     expect(plan.test_cases).toHaveLength(1);
   });
+
+  it("lets options.maxTests override max_tests_per_run", () => {
+    const uncapped = generateFallbackPlan(siteModel(), config());
+    expect(uncapped.test_cases.length).toBeGreaterThan(1);
+
+    const plan = generateFallbackPlan(siteModel(), config(), { maxTests: 1 });
+    expect(plan.test_cases).toHaveLength(1);
+  });
 });

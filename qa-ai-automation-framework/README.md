@@ -39,13 +39,59 @@ During development, run the CLI without building: `npm run dev -- doctor`.
 | ----- | -------------------------------------------------------------------------------------- | ------- |
 | 0     | Skeleton: CLI shell, config loader, workspace/artifacts, all Zod schemas, doctor       | ✅ done |
 | 1     | LLM layer (Claude Agent SDK + `claude -p` fallback), json-mode, retry, doctor AI check | ✅ done |
-| 2     | Crawler                                                                                | ⬜      |
-| 3     | Planner + coverage read path                                                           | ⬜      |
-| 4     | Executor + coverage write + reporter                                                   | ⬜      |
+| 2     | Crawler                                                                                | ✅ done |
+| 3     | Planner + coverage read path                                                           | ✅ done |
+| 4     | Executor + coverage write + reporter                                                   | ✅ done |
 | 5     | Generator (standalone Playwright project)                                              | ⬜      |
 | 6     | Automation runner                                                                      | ⬜      |
 | 7     | Healer                                                                                 | ⬜      |
 | 8     | Pipeline + polish                                                                      | ⬜      |
+
+`crawl`, `plan` and `execute` are usable today; `generate`, `run-generated` and `heal` are still
+stubs.
+
+## Usage
+
+The three implemented stages chain through `.qa/`, each picking up the previous stage's output
+via its `latest.json` pointer:
+
+```bash
+node dist/cli/index.js crawl --max-pages 8      # → .qa/site-model/site-model.json
+node dist/cli/index.js plan  --max-tests 15     # → .qa/plans/plan-<ts>.json
+node dist/cli/index.js execute --max-parallel 2 # → .qa/runs/run-<ts>/
+```
+
+Add `--config qa-config.json` if your config is not at the default `./qa-config.json`, and
+`--verbose` for debug logging.
+
+**`crawl`** — priority-queue BFS with stealth Chromium, four link-discovery strategies plus
+sitemap backfill, smart auth (explicit selectors → heuristic auto-detect → LLM vision), and
+clean-context probing to mark each page's `auth_required`.
+
+**`plan`** — condenses the SiteModel (never raw JSON) plus a coverage gap report into one
+LLM call, validates each test case individually so one malformed case cannot sink the plan, and
+falls back to a deterministic plan on any LLM failure. Credentials stay on disk as
+`{{auth_username}}` / `{{auth_password}}` placeholders.
+
+**`execute`** — runs the plan against the live site and writes:
+
+| Output                                  | What it is                                          |
+| --------------------------------------- | --------------------------------------------------- |
+| `.qa/runs/run-<ts>/run-result.json`     | the RunResult artifact (the machine handoff)        |
+| `.qa/runs/run-<ts>/report/report.html`  | self-contained HTML report, screenshots embedded    |
+| `.qa/runs/run-<ts>/report/report.json`  | the same run plus detected regressions              |
+| `.qa/runs/run-<ts>/evidence/<test_id>/` | screenshots, console log, network log, DOM snapshot |
+| `.qa/coverage/coverage-registry.json`   | coverage feedback the next `plan` run consumes      |
+
+Key flags: `--plan`, `--site-model`, `--coverage`, `--headed`, `--max-parallel`, `--filter`.
+
+Tests run in isolated browser contexts, bounded by `max_parallel_contexts` and a wall-clock
+budget (`max_execution_time_seconds`); tests that never start are recorded as `skip` rather than
+dropped. A failing step recovers in three escalating stages — deterministic selector healing from
+SiteModel element data, session re-authentication and one retry, then a budgeted AI fallback —
+and every recovery decision is recorded in the artifact.
+
+Exit codes: `0` ok, `1` component error, `2` config/input error, `3` tests failed.
 
 ## Development
 
@@ -59,9 +105,13 @@ npm run format        # prettier
 ### Layout
 
 - `src/cli/` — commander root + one file per subcommand (composition root)
-- `src/core/` — shared infra: config loader, workspace, artifact IO, logger, errors, ids
+- `src/core/` — shared infra: config loader, workspace, artifact IO, logger, errors, ids,
+  semaphore, browser launch/context, auth (smart auth + session guard)
+- `src/llm/` — provider interface + factory; `FakeLlmProvider` is the first-class test utility
 - `src/schemas/` — Zod schemas + inferred types for every artifact (snake_case JSON keys)
-- `src/<component>/` — pipeline components; may import only `core`, `llm`, `schemas`
+- `src/<component>/` — pipeline components (`crawler`, `planner`, `executor`, …); may import only
+  `core`, `llm`, `schemas` and the shared `coverage` / `reporter` libraries — never each other
+- `src/coverage/`, `src/reporter/` — shared libraries any component may import
 - `templates/generated-project/` — static scaffold emitted by the generator
 - `tests/` — vitest unit tests mirroring `src/`
 

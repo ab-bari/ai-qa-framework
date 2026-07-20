@@ -26,6 +26,48 @@ const siteModel = SiteModelSchema.parse({
   pages: [{ page_id: "login", url: "https://www.saucedemo.com/", page_type: "form" }],
 });
 
+/** A site model rich enough to yield several fallback cases (load + form + nav click). */
+const multiCaseSiteModel = SiteModelSchema.parse({
+  base_url: "https://www.saucedemo.com",
+  pages: [
+    {
+      page_id: "login",
+      url: "https://www.saucedemo.com/",
+      page_type: "form",
+      title: "Swag Labs",
+      auth_required: false,
+      elements: [
+        {
+          element_id: "e1",
+          tag: "a",
+          selector: "#nav",
+          element_type: "link",
+          text_content: "Menu",
+          is_interactive: true,
+        },
+      ],
+      forms: [
+        {
+          form_id: "f1",
+          method: "POST",
+          submit_selector: "[data-test=\"login-button\"]",
+          fields: [
+            { name: "user-name", field_type: "text", selector: "[data-test=\"username\"]" },
+            { name: "password", field_type: "password", selector: "[data-test=\"password\"]" },
+          ],
+        },
+      ],
+    },
+    {
+      page_id: "inventory",
+      url: "https://www.saucedemo.com/inventory.html",
+      page_type: "listing",
+      title: "",
+      auth_required: true,
+    },
+  ],
+});
+
 const GOOD_RESPONSE = `\`\`\`json
 {
   "test_cases": [
@@ -74,10 +116,26 @@ describe("generatePlan", () => {
     expect(plan.coverage_intent.fallback).toBe(true);
   });
 
-  it("respects the maxTests override", async () => {
-    const ctx = makeCtx(new FakeLlmProvider(() => new Error("boom")));
-    const plan = await generatePlan(ctx, siteModel, { maxTests: 1 });
+  it("applies maxTests on the fallback path after the LLM throws", async () => {
+    // Control: the fixture really does exceed the cap when nothing constrains it.
+    const uncapped = await generatePlan(
+      makeCtx(new FakeLlmProvider(() => new Error("boom"))),
+      multiCaseSiteModel,
+    );
+    expect(uncapped.test_cases.length).toBeGreaterThan(1);
 
-    expect(plan.test_cases.length).toBeLessThanOrEqual(1);
+    const ctx = makeCtx(new FakeLlmProvider(() => new Error("boom")));
+    const plan = await generatePlan(ctx, multiCaseSiteModel, { maxTests: 1 });
+
+    expect(plan.coverage_intent.fallback).toBe(true);
+    expect(plan.test_cases).toHaveLength(1);
+  });
+
+  it("applies maxTests on the fallback path when no LLM provider is attached", async () => {
+    const ctx = makeCtx(undefined);
+    const plan = await generatePlan(ctx, multiCaseSiteModel, { maxTests: 1 });
+
+    expect(plan.coverage_intent.fallback).toBe(true);
+    expect(plan.test_cases).toHaveLength(1);
   });
 });

@@ -208,11 +208,21 @@ function finalize(tc: TestCase): TestCase {
   return { ...tc, coverage_signature: deriveCoverageSignature(tc) };
 }
 
+export interface FallbackPlanOptions {
+  /** Overrides `config.max_tests_per_run` (the `--max-tests` flag). */
+  maxTests?: number | undefined;
+}
+
 /**
  * Build a deterministic TestPlan with no LLM (plan §6.2). Capped at
- * `max_tests_per_run`; flags `coverage_intent.fallback = true`.
+ * `options.maxTests` when given, else `max_tests_per_run`; flags
+ * `coverage_intent.fallback = true`.
  */
-export function generateFallbackPlan(siteModel: SiteModel, config: FrameworkConfig): TestPlan {
+export function generateFallbackPlan(
+  siteModel: SiteModel,
+  config: FrameworkConfig,
+  options: FallbackPlanOptions = {},
+): TestPlan {
   const cases: TestCase[] = [];
   let tcNum = 0;
   const nextNum = (): number => (tcNum += 1);
@@ -234,7 +244,7 @@ export function generateFallbackPlan(siteModel: SiteModel, config: FrameworkConf
     }
   }
 
-  const capped = cases.slice(0, config.max_tests_per_run);
+  const capped = cases.slice(0, options.maxTests ?? config.max_tests_per_run);
   return {
     plan_id: newPlanId(),
     generated_at: new Date().toISOString(),
