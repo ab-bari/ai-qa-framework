@@ -33,3 +33,4 @@ venv/
 # Project-local notes
 CLAUDE.md
 IMPROVEMENT_PLAN.md
+.ua/*

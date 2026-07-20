@@ -1,0 +1,35 @@
+{
+  "target_url": "https://www.saucedemo.com",
+  "auth": {
+    "login_url": "https://www.saucedemo.com/",
+    "username": "standard_user",
+    "password": "env:QA_AUTH_PASSWORD",
+    "username_selector": "",
+    "password_selector": "",
+    "submit_selector": "",
+    "success_indicator": "",
+    "auto_detect": true,
+    "llm_fallback": true
+  },
+  "crawl": {
+    "max_pages": 10,
+    "max_depth": 5,
+    "include_patterns": [],
+    "exclude_patterns": [],
+    "wait_for_idle": true,
+    "viewport": { "width": 1280, "height": 720, "name": "desktop" },
+    "user_agent": null
+  },
+  "categories": ["functional", "security"],
+  "max_tests_per_run": 20,
+  "max_execution_time_seconds": 1800,
+  "max_parallel_contexts": 3,
+  "selector_timeout_seconds": 10,
+  "ai_provider": "claude-code",
+  "ai_model": "",
+  "ai_max_fallback_calls_per_test": 3,
+  "staleness_threshold_days": 7,
+  "history_retention_runs": 20,
+  "hints": [],
+  "workspace_dir": ".qa"
+}

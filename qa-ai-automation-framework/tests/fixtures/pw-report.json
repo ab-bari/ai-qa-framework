@@ -1,0 +1,137 @@
+{
+  "config": {
+    "configFile": "playwright.config.ts",
+    "rootDir": "tests",
+    "version": "1.49.0",
+    "workers": 4
+  },
+  "suites": [
+    {
+      "title": "inventory\\inventory-page.spec.ts",
+      "file": "inventory\\inventory-page.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Inventory page",
+          "file": "inventory\\inventory-page.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows six products @smoke",
+              "ok": true,
+              "tags": ["smoke"],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "status": "passed",
+                      "duration": 2411,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-20T11:00:01.000Z",
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "abc123-def456",
+              "file": "inventory\\inventory-page.spec.ts",
+              "line": 8,
+              "column": 3
+            },
+            {
+              "title": "adds an item to the cart @regression",
+              "ok": false,
+              "tags": ["regression"],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "status": "failed",
+                      "duration": 31042,
+                      "error": {
+                        "message": "Error: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Add to cart' })",
+                        "stack": "Error: locator.click: Timeout 30000ms exceeded.\n    at InventoryPage.addFirstItem (src\\pages\\InventoryPage.ts:21:34)",
+                        "location": {
+                          "file": "src\\pages\\InventoryPage.ts",
+                          "line": 21,
+                          "column": 34
+                        },
+                        "snippet": "  21 |     await this.addToCartButton.click();"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Add to cart' })",
+                          "location": {
+                            "file": "src\\pages\\InventoryPage.ts",
+                            "line": 21,
+                            "column": 34
+                          }
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-20T11:00:04.000Z",
+                      "attachments": []
+                    },
+                    {
+                      "workerIndex": 2,
+                      "status": "failed",
+                      "duration": 30877,
+                      "error": {
+                        "message": "Error: locator.click: Timeout 30000ms exceeded."
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: locator.click: Timeout 30000ms exceeded."
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-07-20T11:00:36.000Z",
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "def456-ghi789",
+              "file": "inventory\\inventory-page.spec.ts",
+              "line": 14,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-20T11:00:00.500Z",
+    "duration": 64512.25,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

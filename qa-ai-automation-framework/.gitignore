@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.qa/
+*.log
+.env
+qa-config.json

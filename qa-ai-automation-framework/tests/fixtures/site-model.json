@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0.0",
+  "generated_by": "qa-ai@0.1.0",
+  "base_url": "https://www.saucedemo.com",
+  "pages": [
+    {
+      "page_id": "a1b2c3d4e5f6",
+      "url": "https://www.saucedemo.com/",
+      "page_type": "form",
+      "title": "Swag Labs",
+      "elements": [
+        {
+          "element_id": "0123456789",
+          "tag": "input",
+          "selector": "[data-test=\"username\"]",
+          "role": "textbox",
+          "text_content": "",
+          "is_interactive": true,
+          "element_type": "input",
+          "attributes": {
+            "data-test": "username",
+            "placeholder": "Username",
+            "type": "text"
+          }
+        },
+        {
+          "element_id": "abcdef0123",
+          "tag": "input",
+          "selector": "[data-test=\"login-button\"]",
+          "role": "button",
+          "text_content": "Login",
+          "is_interactive": true,
+          "element_type": "button",
+          "attributes": {
+            "data-test": "login-button",
+            "type": "submit"
+          }
+        }
+      ],
+      "forms": [
+        {
+          "form_id": "f0e1d2c3b4",
+          "action": "https://www.saucedemo.com/",
+          "method": "POST",
+          "fields": [
+            {
+              "name": "user-name",
+              "field_type": "text",
+              "required": true,
+              "validation_pattern": null,
+              "options": null,
+              "selector": "[data-test=\"username\"]"
+            },
+            {
+              "name": "password",
+              "field_type": "password",
+              "required": true,
+              "validation_pattern": null,
+              "options": null,
+              "selector": "[data-test=\"password\"]"
+            }
+          ],
+          "submit_selector": "[data-test=\"login-button\"]"
+        }
+      ],
+      "network_requests": [
+        {
+          "url": "https://www.saucedemo.com/static/js/main.js",
+          "method": "GET",
+          "resource_type": "script",
+          "status": 200,
+          "content_type": "application/javascript"
+        }
+      ],
+      "screenshot_path": "site-model/pages/a1b2c3d4e5f6/screenshot.png",
+      "dom_snapshot_path": "site-model/pages/a1b2c3d4e5f6/dom.html",
+      "auth_required": false
+    },
+    {
+      "page_id": "b2c3d4e5f6a1",
+      "url": "https://www.saucedemo.com/inventory.html",
+      "page_type": "listing",
+      "title": "Swag Labs",
+      "elements": [],
+      "forms": [],
+      "network_requests": [],
+      "screenshot_path": "",
+      "dom_snapshot_path": "",
+      "auth_required": true
+    }
+  ],
+  "navigation_graph": {
+    "a1b2c3d4e5f6": ["b2c3d4e5f6a1"],
+    "b2c3d4e5f6a1": []
+  },
+  "api_endpoints": [
+    {
+      "url": "https://www.saucedemo.com/api/items",
+      "method": "GET",
+      "request_content_type": null,
+      "response_content_type": "application/json",
+      "status_codes_seen": [200, 304]
+    }
+  ],
+  "auth_flow": {
+    "login_url": "https://www.saucedemo.com/",
+    "login_method": "form",
+    "requires_credentials": true,
+    "detection_method": "auto_detect",
+    "detected_selectors": {
+      "username": "[data-test=\"username\"]",
+      "password": "[data-test=\"password\"]",
+      "submit": "[data-test=\"login-button\"]"
+    }
+  },
+  "crawl_metadata": {
+    "started_at": "2026-07-20T10:00:00.000Z",
+    "completed_at": "2026-07-20T10:02:31.000Z",
+    "pages_crawled": 2,
+    "errors": []
+  }
+}
