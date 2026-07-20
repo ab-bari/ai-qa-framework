@@ -9,6 +9,7 @@ import type { z } from "zod";
 /** Drives debug-log naming and the timeout profile (plan §5). */
 export type LlmPurpose =
   | "planner"
+  | "generator"
   | "selector-fallback"
   | "healer-triage"
   | "healer-patch"
@@ -51,6 +52,7 @@ export interface LLMProvider {
 /** Per-purpose timeout profile (plan §5). */
 export const LLM_TIMEOUT_PROFILE_MS: Record<LlmPurpose, number> = {
   planner: 300_000,
+  generator: 300_000,
   "healer-patch": 300_000,
   "selector-fallback": 90_000,
   "healer-triage": 90_000,

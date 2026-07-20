@@ -4,3 +4,12 @@ dist/
 *.log
 .env
 qa-config.json
+
+# Generated standalone Playwright project (automation-tests/) — keep the
+# generated source, ignore its ephemeral run artifacts (PHASE_5_GENERATOR_PLAN).
+automation-tests/node_modules/
+automation-tests/test-results/
+automation-tests/playwright-report/
+automation-tests/results.json
+automation-tests/.env
+automation-tests/*

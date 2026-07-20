@@ -34,3 +34,5 @@ venv/
 CLAUDE.md
 IMPROVEMENT_PLAN.md
 .ua/*
+
+automation-tests/*

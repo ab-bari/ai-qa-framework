@@ -4,7 +4,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { ArtifactError } from "./errors.js";
 
@@ -48,8 +48,14 @@ export class Workspace {
   get storageStatePath(): string {
     return this.resolve("auth", "storage-state.json");
   }
-  get generatedTestsDir(): string {
-    return this.resolve("generated-tests");
+  /**
+   * The generated standalone Playwright project — emitted OUTSIDE `.qa/`, as a
+   * sibling of the workspace root at `<framework/target root>/automation-tests`
+   * (PHASE_5_GENERATOR_PLAN: it must be repo-extraction-ready with its own
+   * package.json). Distinct from `automationRunsDir` (`.qa/automation-runs`).
+   */
+  get automationTestsDir(): string {
+    return join(dirname(this.root), "automation-tests");
   }
   get automationRunsDir(): string {
     return this.resolve("automation-runs");

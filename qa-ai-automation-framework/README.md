@@ -7,7 +7,7 @@ artifacts on disk — no component imports another:
 qa-ai crawl          → .qa/site-model/site-model.json          (SiteModel)
 qa-ai plan           → .qa/plans/plan-<ts>.json                (TestPlan)
 qa-ai execute        → .qa/runs/run-<ts>/run-result.json       (RunResult)
-qa-ai generate       → .qa/generated-tests/                    (standalone Playwright project)
+qa-ai generate       → automation-tests/                       (standalone Playwright project)
 qa-ai run-generated  → Playwright native HTML report + results.json
 qa-ai heal           → patched files + .qa/healing/session-<ts>/healing-report.html
 ```
@@ -42,23 +42,24 @@ During development, run the CLI without building: `npm run dev -- doctor`.
 | 2     | Crawler                                                                                | ✅ done |
 | 3     | Planner + coverage read path                                                           | ✅ done |
 | 4     | Executor + coverage write + reporter                                                   | ✅ done |
-| 5     | Generator (standalone Playwright project)                                              | ⬜      |
+| 5     | Generator (standalone Playwright project)                                              | ✅ done |
 | 6     | Automation runner                                                                      | ⬜      |
 | 7     | Healer                                                                                 | ⬜      |
 | 8     | Pipeline + polish                                                                      | ⬜      |
 
-`crawl`, `plan` and `execute` are usable today; `generate`, `run-generated` and `heal` are still
+`crawl`, `plan`, `execute` and `generate` are usable today; `run-generated` and `heal` are still
 stubs.
 
 ## Usage
 
-The three implemented stages chain through `.qa/`, each picking up the previous stage's output
-via its `latest.json` pointer:
+The implemented stages chain through `.qa/`, each picking up the previous stage's output
+via its `latest.json` pointer (the generator additionally emits a project outside `.qa/`):
 
 ```bash
 node dist/cli/index.js crawl --max-pages 8      # → .qa/site-model/site-model.json
 node dist/cli/index.js plan  --max-tests 15     # → .qa/plans/plan-<ts>.json
 node dist/cli/index.js execute --max-parallel 2 # → .qa/runs/run-<ts>/
+node dist/cli/index.js generate                 # → automation-tests/ (standalone project)
 ```
 
 Add `--config qa-config.json` if your config is not at the default `./qa-config.json`, and
@@ -92,6 +93,32 @@ SiteModel element data, session re-authentication and one retry, then a budgeted
 and every recovery decision is recorded in the artifact.
 
 Exit codes: `0` ok, `1` component error, `2` config/input error, `3` tests failed.
+
+**`generate`** — turns the TestPlan + SiteModel into a **self-contained standalone Playwright
+project** at `automation-tests/` (a sibling of `.qa/`, with its own `package.json` so it can be
+committed and extracted to its own repo). Real Playwright locators are derived from the SiteModel's
+element data — never from a prior run.
+
+| Output                                    | What it is                                                   |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `automation-tests/src/pages/*.ts`         | Page Objects (one per targeted page), extending `BasePage`   |
+| `automation-tests/tests/**/*.spec.ts`     | specs mirroring the app URL structure, with traceability tags |
+| `automation-tests/tests/data/*.json`      | non-credential test data                                     |
+| `automation-tests/.env.example`           | the credential env vars the specs read (values never committed) |
+| `automation-tests/generation-manifest.json` | maps each file back to its source TestCase ids            |
+
+A deterministic scaffold (`package.json`, `playwright.config.ts` with HTML + JSON reporters,
+`src/fixtures/base.ts` with a `consoleErrors` fixture, `BasePage`, seed spec) is copied verbatim;
+the Page Objects and specs are LLM-generated. Generation enforces the `automation/AGENTS.md`
+conventions through both prompts and a regex convention-lint, and runs a validation loop
+(`npm install` → `tsc --noEmit` → `playwright test --list`) that feeds failures back to the model
+for up to three repair rounds per stage. Key flags: `--plan`, `--site-model`, `--output`,
+`--skip-validate` (skips npm/tsc/list; lint still runs).
+
+```bash
+node dist/cli/index.js generate            # → automation-tests/
+cd automation-tests && npm install && npx playwright test
+```
 
 ## Development
 

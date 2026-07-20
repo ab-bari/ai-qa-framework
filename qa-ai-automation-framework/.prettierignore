@@ -1,0 +1,7 @@
+dist/
+node_modules/
+coverage/
+.qa/
+# The generated-project scaffold follows the generated project's own style
+# (single quotes, its own tsconfig) — not the framework's Prettier config.
+templates/
