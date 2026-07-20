@@ -43,12 +43,12 @@ During development, run the CLI without building: `npm run dev -- doctor`.
 | 3     | Planner + coverage read path                                                           | ✅ done |
 | 4     | Executor + coverage write + reporter                                                   | ✅ done |
 | 5     | Generator (standalone Playwright project)                                              | ✅ done |
-| 6     | Automation runner                                                                      | ⬜      |
+| 6     | Automation runner                                                                      | ✅ done |
 | 7     | Healer                                                                                 | ⬜      |
 | 8     | Pipeline + polish                                                                      | ⬜      |
 
-`crawl`, `plan`, `execute` and `generate` are usable today; `run-generated` and `heal` are still
-stubs.
+`crawl`, `plan`, `execute`, `generate` and `run-generated` are usable today; `heal` is still a
+stub.
 
 ## Usage
 
@@ -99,13 +99,13 @@ project** at `automation-tests/` (a sibling of `.qa/`, with its own `package.jso
 committed and extracted to its own repo). Real Playwright locators are derived from the SiteModel's
 element data — never from a prior run.
 
-| Output                                    | What it is                                                   |
-| ----------------------------------------- | ------------------------------------------------------------ |
-| `automation-tests/src/pages/*.ts`         | Page Objects (one per targeted page), extending `BasePage`   |
-| `automation-tests/tests/**/*.spec.ts`     | specs mirroring the app URL structure, with traceability tags |
-| `automation-tests/tests/data/*.json`      | non-credential test data                                     |
-| `automation-tests/.env.example`           | the credential env vars the specs read (values never committed) |
-| `automation-tests/generation-manifest.json` | maps each file back to its source TestCase ids            |
+| Output                                      | What it is                                                      |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| `automation-tests/src/pages/*.ts`           | Page Objects (one per targeted page), extending `BasePage`      |
+| `automation-tests/tests/**/*.spec.ts`       | specs mirroring the app URL structure, with traceability tags   |
+| `automation-tests/tests/data/*.json`        | non-credential test data                                        |
+| `automation-tests/.env.example`             | the credential env vars the specs read (values never committed) |
+| `automation-tests/generation-manifest.json` | maps each file back to its source TestCase ids                  |
 
 A deterministic scaffold (`package.json`, `playwright.config.ts` with HTML + JSON reporters,
 `src/fixtures/base.ts` with a `consoleErrors` fixture, `BasePage`, seed spec) is copied verbatim;

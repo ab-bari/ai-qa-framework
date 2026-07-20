@@ -35,7 +35,16 @@ const boundaryOverrides = PIPELINE_COMPONENTS.map((component) => ({
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "templates/**", "coverage/**"],
+    // automation-tests/** and .qa/** are generated output, not framework
+    // source — they carry their own toolchain and conventions.
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "templates/**",
+      "coverage/**",
+      "automation-tests/**",
+      ".qa/**",
+    ],
   },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,

@@ -1,6 +1,6 @@
 # Execution Guide — qa-ai-automation-framework
 
-This guide covers how to run the four implemented pipeline components — **crawler → planner → executor → generator** — end to end. They communicate only through artifacts, so they run in that order: the crawler writes a SiteModel, the planner reads it and writes a TestPlan, the executor reads both and writes a RunResult + coverage + HTML report, and the generator reads the TestPlan + SiteModel and emits a standalone Playwright project at `automation-tests/`.
+This guide covers how to run the five implemented pipeline components — **crawler → planner → executor → generator → automation-runner** — end to end. They communicate only through artifacts, so they run in that order: the crawler writes a SiteModel, the planner reads it and writes a TestPlan, the executor reads both and writes a RunResult + coverage + HTML report, the generator reads the TestPlan + SiteModel and emits a standalone Playwright project at `automation-tests/`, and `run-generated` runs that project and captures Playwright's native HTML report + `results.json`.
 
 All commands run from the framework folder:
 
@@ -28,11 +28,11 @@ npm run dev -- --config qa-config.json <command> [flags]
 
 These are defined on the top-level program, so they go **before** the subcommand (`crawl` / `plan` / `execute` / `generate`); per-command flags go after it.
 
-| Global flag           | Purpose                                                              |
-| --------------------- | ------------------------------------------------------------------- |
-| `--config <path>`     | Path to the config file (default `./qa-config.json`)                |
-| `--workspace <dir>`   | Workspace directory (default: `workspace_dir` from config, else `.qa`) |
-| `--verbose`           | Verbose output, including stack traces and per-command debug detail |
+| Global flag         | Purpose                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `--config <path>`   | Path to the config file (default `./qa-config.json`)                   |
+| `--workspace <dir>` | Workspace directory (default: `workspace_dir` from config, else `.qa`) |
+| `--verbose`         | Verbose output, including stack traces and per-command debug detail    |
 
 ```bash
 # --verbose is global: it goes BEFORE the subcommand, like --config
@@ -43,12 +43,12 @@ node dist/cli/index.js --config qa-config.json --verbose plan --max-tests 8
 
 ## One-time setup
 
-| Step             | Command                           | Notes                              |
-| ---------------- | --------------------------------- | ---------------------------------- |
-| Install deps     | `npm install`                     | Once per clone                     |
-| Install browser  | `npx playwright install chromium` | Playwright's Chromium              |
+| Step             | Command                           | Notes                                                             |
+| ---------------- | --------------------------------- | ----------------------------------------------------------------- |
+| Install deps     | `npm install`                     | Once per clone                                                    |
+| Install browser  | `npx playwright install chromium` | Playwright's Chromium                                             |
 | Build to `dist/` | `npm run build`                   | Needed for the `node dist/...` style; re-run after `src/` changes |
-| Config file      | `qa-config.json` (gitignored)     | Copy `qa-config.example.json`, edit `target_url` / `auth` |
+| Config file      | `qa-config.json` (gitignored)     | Copy `qa-config.example.json`, edit `target_url` / `auth`         |
 
 ## Prerequisite: Claude Code authentication
 
@@ -62,7 +62,7 @@ node dist/cli/index.js doctor    # verifies Node, Claude, Chromium, config
 Who needs auth:
 
 - **Crawler** — only if `auth.llm_fallback: true` **and** heuristic login detection fails. With `llm_fallback: false` (the current `qa-config.json`), **no Claude auth is needed**.
-- **Planner** — always calls the LLM. Without auth it does **not** error; it silently emits the weaker *deterministic fallback plan* instead. Run `doctor` to confirm auth before planning.
+- **Planner** — always calls the LLM. Without auth it does **not** error; it silently emits the weaker _deterministic fallback plan_ instead. Run `doctor` to confirm auth before planning.
 - **Executor** — calls the LLM for tier-2 self-healing and the AI run summary. Without auth it still runs, just without those.
 
 ---
@@ -83,11 +83,11 @@ npm run dev -- --config qa-config.json crawl --max-pages 8
 
 ## Useful flags
 
-| Flag                | Purpose                                                        |
-| ------------------- | ------------------------------------------------------------- |
-| `--max-pages <n>`   | Cap pages (overrides `crawl.max_pages` in config)             |
-| `--headed`          | Watch the browser instead of running headless                 |
-| `--output <path>`   | Write the SiteModel somewhere other than the default          |
+| Flag              | Purpose                                              |
+| ----------------- | ---------------------------------------------------- |
+| `--max-pages <n>` | Cap pages (overrides `crawl.max_pages` in config)    |
+| `--headed`        | Watch the browser instead of running headless        |
+| `--output <path>` | Write the SiteModel somewhere other than the default |
 
 (For per-page element/form counts and probe failures, add the global `--verbose` before `crawl`.)
 
@@ -151,12 +151,12 @@ npm run dev -- --config qa-config.json plan --max-tests 8
 
 ## Useful flags
 
-| Flag                   | Purpose                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| `--max-tests <n>`      | Override `max_tests_per_run` (config default: 20)                                         |
-| `--site-model <path>`  | Use a specific SiteModel instead of the latest                                            |
-| `--coverage <path>`    | Use a specific coverage registry (default `.qa/coverage/coverage-registry.json`; absent = first run, all pages untested) |
-| `--output <path>`      | Write the plan somewhere explicit                                                         |
+| Flag                  | Purpose                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `--max-tests <n>`     | Override `max_tests_per_run` (config default: 20)                                                                        |
+| `--site-model <path>` | Use a specific SiteModel instead of the latest                                                                           |
+| `--coverage <path>`   | Use a specific coverage registry (default `.qa/coverage/coverage-registry.json`; absent = first run, all pages untested) |
+| `--output <path>`     | Write the plan somewhere explicit                                                                                        |
 
 (To see dropped test cases and their reasons, add the global `--verbose` before `plan`.)
 
@@ -213,14 +213,14 @@ npm run dev -- --config qa-config.json execute
 
 ## Useful flags
 
-| Flag                    | Purpose                                                                    |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `--plan <path>`         | Use a specific TestPlan instead of the latest                              |
-| `--site-model <path>`   | Use a specific SiteModel instead of the latest                             |
-| `--coverage <path>`     | Read/write a specific coverage registry (default `.qa/coverage/coverage-registry.json`) |
-| `--headed`              | Watch the browser instead of running headless                              |
-| `--max-parallel <n>`    | Concurrent browser contexts (overrides `max_parallel_contexts`, config default: 3) |
-| `--filter <substr>`     | Only run test cases whose id or name contains this text                    |
+| Flag                  | Purpose                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| `--plan <path>`       | Use a specific TestPlan instead of the latest                                           |
+| `--site-model <path>` | Use a specific SiteModel instead of the latest                                          |
+| `--coverage <path>`   | Read/write a specific coverage registry (default `.qa/coverage/coverage-registry.json`) |
+| `--headed`            | Watch the browser instead of running headless                                           |
+| `--max-parallel <n>`  | Concurrent browser contexts (overrides `max_parallel_contexts`, config default: 3)      |
+| `--filter <substr>`   | Only run test cases whose id or name contains this text                                 |
 
 (For debug logging, add the global `--verbose` before `execute`.)
 
@@ -250,11 +250,11 @@ Coverage is attributed to where the browser actually ended up (`actual_page_id`)
 
 ## Exit codes
 
-| Code | Meaning                                                        |
-| ---- | ------------------------------------------------------------- |
-| `0`  | All tests passed                                              |
-| `3`  | Tests ran but one or more **failed** (distinct from an error) |
-| other | Component error (bad config, missing artifact, crash)        |
+| Code  | Meaning                                                       |
+| ----- | ------------------------------------------------------------- |
+| `0`   | All tests passed                                              |
+| `3`   | Tests ran but one or more **failed** (distinct from an error) |
+| other | Component error (bad config, missing artifact, crash)         |
 
 Exit `3` is deliberately distinct so CI can tell "tests failed" apart from "the tool broke."
 
@@ -282,12 +282,12 @@ npm run dev -- --config qa-config.json generate
 
 ## Useful flags
 
-| Flag                   | Purpose                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `--plan <path>`        | Use a specific TestPlan instead of the latest                                            |
-| `--site-model <path>`  | Use a specific SiteModel instead of the latest                                           |
-| `--output <path>`      | Write the project somewhere other than `<root>/automation-tests`                         |
-| `--skip-validate`      | Skip `npm install` / `tsc --noEmit` / `playwright test --list` (the convention lint still runs) — faster, useful when offline or iterating |
+| Flag                  | Purpose                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--plan <path>`       | Use a specific TestPlan instead of the latest                                                                                              |
+| `--site-model <path>` | Use a specific SiteModel instead of the latest                                                                                             |
+| `--output <path>`     | Write the project somewhere other than `<root>/automation-tests`                                                                           |
+| `--skip-validate`     | Skip `npm install` / `tsc --noEmit` / `playwright test --list` (the convention lint still runs) — faster, useful when offline or iterating |
 
 ## What it does
 
@@ -320,6 +320,53 @@ Credentials come from the environment — copy `.env.example` to `.env` and fill
 
 ---
 
+# 5. Automation runner
+
+Runs the generated `automation-tests/` project and captures Playwright's **own** reports into a fresh run folder — no AI, no custom result schema. The native **HTML report** is the human-facing output; the native **`results.json`** is the machine handoff that `qa-ai heal` (Phase 7) consumes.
+
+## Prerequisites
+
+- A generated project at `automation-tests/` — run `generate` first (or pass `--project`).
+- Node 20+, and network access + Chromium so the project can install/run. The runner installs dependencies and Chromium automatically when they are missing.
+- No Claude auth needed — this stage never calls the LLM.
+
+## Run
+
+```bash
+# A) built CLI
+node dist/cli/index.js --config qa-config.json run-generated
+
+# B) from source
+npm run dev -- --config qa-config.json run-generated
+```
+
+## Useful flags
+
+| Flag               | Purpose                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `--project <path>` | Run a project other than `automation-tests/`                   |
+| `--spec <file>`    | Only run this spec file (pass-through to `playwright test`)    |
+| `--grep <pattern>` | Only run tests whose title matches the pattern (e.g. `@smoke`) |
+| `--headed`         | Run the browser headed                                         |
+| `--workers <n>`    | Number of Playwright workers                                   |
+| `--install`        | Force `npm install` even when `node_modules` already exists    |
+
+## Output
+
+```
+.qa/automation-runs/run-<ts>/
+├── playwright-report/index.html   ← native HTML report (open with: npx playwright show-report <dir>)
+└── results.json                   ← native Playwright JSON — the heal handoff
+```
+
+`automation-runs/latest.json` is pointed at that `results.json`, so `qa-ai heal` finds the run automatically.
+
+## Exit codes
+
+`0` all tests passed · `3` one or more tests failed (reports are still written) · `1`/`2` runner or config error. The code mirrors Playwright's pass/fail outcome.
+
+---
+
 ## End-to-end quick reference
 
 ```bash
@@ -327,21 +374,23 @@ Credentials come from the environment — copy `.env.example` to `.env` and fill
 npm install && npx playwright install chromium && npm run build
 claude login && node dist/cli/index.js doctor
 
-# 1. crawl → 2. plan → 3. execute → 4. generate
-node dist/cli/index.js --config qa-config.json crawl    --max-pages 8
-node dist/cli/index.js --config qa-config.json plan     --max-tests 8
-node dist/cli/index.js --config qa-config.json execute  --max-parallel 2
+# 1. crawl → 2. plan → 3. execute → 4. generate → 5. run-generated
+node dist/cli/index.js --config qa-config.json crawl         --max-pages 8
+node dist/cli/index.js --config qa-config.json plan          --max-tests 8
+node dist/cli/index.js --config qa-config.json execute       --max-parallel 2
 node dist/cli/index.js --config qa-config.json generate
+node dist/cli/index.js --config qa-config.json run-generated
 
-# run the generated suite standalone
+# (run-generated already runs the suite for you; to run it standalone instead:)
 cd automation-tests && npm install && npx playwright test
 ```
 
 Or entirely from source (no build step):
 
 ```bash
-npm run dev -- --config qa-config.json crawl    --max-pages 8
-npm run dev -- --config qa-config.json plan     --max-tests 8
-npm run dev -- --config qa-config.json execute  --max-parallel 2
+npm run dev -- --config qa-config.json crawl         --max-pages 8
+npm run dev -- --config qa-config.json plan          --max-tests 8
+npm run dev -- --config qa-config.json execute       --max-parallel 2
 npm run dev -- --config qa-config.json generate
+npm run dev -- --config qa-config.json run-generated
 ```
